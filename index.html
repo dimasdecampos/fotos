@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Seu Nome — Fotografia</title>
+  <meta name="description" content="Portfólio de fotografia: retratos, natureza, viagens e eventos.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <a class="skip" href="#portfolio">Pular para as fotos</a>
+
+  <header class="topbar">
+    <a class="brand" href="#" aria-label="Início">Seu Nome<span>fotografia</span></a>
+    <nav class="nav" aria-label="Principal">
+      <a href="#portfolio">Portfólio</a>
+      <a href="#instagram">Instagram</a>
+      <a class="nav-cta" href="#contato">Contato</a>
+    </nav>
+  </header>
+
+  <main>
+    <section class="hero">
+      <p class="eyebrow">Portfólio 2026</p>
+      <h1>Histórias contadas <em>em luz</em>.</h1>
+      <p class="lead">Retratos, natureza, viagens e eventos. Toque em uma foto para ver em tela cheia.</p>
+    </section>
+
+    <section id="portfolio" aria-label="Portfólio">
+      <div class="filters" role="group" aria-label="Filtrar por categoria"></div>
+      <div class="mosaic" id="mosaic"></div>
+      <p class="empty" id="empty" hidden>Nenhuma foto nesta categoria ainda.</p>
+    </section>
+
+    <section class="contact" id="contato">
+      <h2>Vamos fotografar?</h2>
+      <p>Conte sobre o seu projeto e receba um orçamento em até 24 horas.</p>
+      <div class="contact-actions">
+        <a class="btn btn-primary" href="https://wa.me/5500000000000" target="_blank" rel="noopener">WhatsApp</a>
+        <a class="btn" href="mailto:contato@seudominio.com">contato@seudominio.com</a>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer" id="instagram">
+    <div class="insta-head">
+      <div>
+        <p class="eyebrow">No Instagram</p>
+        <h2><a id="insta-handle" href="#" target="_blank" rel="noopener">@seuusuario</a></h2>
+      </div>
+      <a class="btn" id="insta-follow" href="#" target="_blank" rel="noopener">Seguir</a>
+    </div>
+    <div class="insta-grid" id="insta-grid"></div>
+    <div class="footer-bottom">
+      <span>© <span id="year"></span> Seu Nome Fotografia</span>
+      <a href="#">Voltar ao topo ↑</a>
+    </div>
+  </footer>
+
+  <dialog class="lightbox" id="lightbox" aria-label="Visualizador de fotos">
+    <button class="lb-btn lb-close" data-lb="close" aria-label="Fechar">✕</button>
+    <button class="lb-btn lb-prev" data-lb="prev" aria-label="Foto anterior">‹</button>
+    <figure>
+      <img id="lb-img" alt="">
+      <figcaption>
+        <span id="lb-title"></span>
+        <span id="lb-count"></span>
+      </figcaption>
+    </figure>
+    <button class="lb-btn lb-next" data-lb="next" aria-label="Próxima foto">›</button>
+  </dialog>
+
+  <script src="js/main.js"></script>
+</body>
+</html>
