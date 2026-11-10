@@ -1,10 +1,10 @@
 # Copia as fotos do Google Drive (e destaques/Instagram) para o site.
-# Roda todo dia de madrugada e também pelo botão "Run workflow" na aba Actions.
+# Roda de hora em hora e também pelo botão "Run workflow" na aba Actions.
 name: Sincronizar fotos
 
 on:
   schedule:
-    - cron: '0 8 * * *'   # 05:00 no horário de Brasília
+    - cron: '17 * * * *'   # de hora em hora (minuto 17: fora do horário de pico do GitHub)
   workflow_dispatch:
 
 permissions:

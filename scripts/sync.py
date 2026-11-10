@@ -1,7 +1,7 @@
 """
 Sincroniza as fotos do Google Drive (e os destaques/Instagram) para o repositório.
 
-Roda uma vez por dia pelo GitHub Actions (.github/workflows/sync.yml) ou à mão:
+Roda de hora em hora pelo GitHub Actions (.github/workflows/sync.yml) ou à mão:
     pip install pillow
     python scripts/sync.py
 
