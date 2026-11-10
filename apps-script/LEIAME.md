@@ -48,10 +48,10 @@ Configuração atual:
   `https://dimasdecampos.github.io/fotos/`.
 - Token salvo em **Configurações do projeto → Propriedades do script → `IG_TOKEN`**.
 
-**Quais posts aparecem no site:** só os que têm **`#dimasdecampos`** na legenda (as 6 mais
-recentes entre as últimas ~150 publicações). Para tirar um post do site, remova a hashtag da
+**Quais posts aparecem no site:** só os que têm **`#dimasdecampos`** na legenda (até 40,
+entre as últimas ~150 publicações); o site sorteia 6 delas a cada visita. Para tirar um post do site, remova a hashtag da
 legenda; para incluir, adicione. Se nenhum post tiver a hashtag, o rodapé mostra os 6 mais
-recentes. A hashtag e a quantidade ficam em `INSTAGRAM_TAG` e `INSTAGRAM_COUNT` no `Code.gs`.
+recentes. A hashtag e o limite ficam em `INSTAGRAM_TAG` e `INSTAGRAM_POOL` no `Code.gs`.
 
 Para trocar o token no futuro: no app do Meta, **2. Gerar tokens de acesso → Gerar token**
 na linha da conta, e substitua o valor de `IG_TOKEN`. O script tenta `graph.instagram.com`

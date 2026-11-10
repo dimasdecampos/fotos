@@ -12,7 +12,7 @@
  */
 
 const FOLDER_ID = '1B_def6YCaVTbVQbvnvkYBFloQwhu67_U'; // pasta do portfólio no Drive
-const INSTAGRAM_COUNT = 6;                            // quantas fotos no rodapé
+const INSTAGRAM_POOL = 40;                            // quantos posts mandar (o site sorteia 6)
 const INSTAGRAM_TAG = '#dimasdecampos';               // só posts com esta hashtag na legenda
 const INSTAGRAM_SCAN = 150;                           // quantos posts recentes procurar
 const CACHE_SECONDS = 600;                            // guarda a resposta por 10 min
@@ -57,15 +57,16 @@ function listStarred_() {
 
 /**
  * Publicações do Instagram para o rodapé, já no formato que o site usa.
- * Mostra só as que têm INSTAGRAM_TAG na legenda (as mais recentes primeiro).
- * Se nenhuma tiver a hashtag, mostra as últimas publicações — o rodapé nunca fica vazio.
+ * Manda as que têm INSTAGRAM_TAG na legenda (até INSTAGRAM_POOL); o site sorteia
+ * quais mostrar a cada visita. Se nenhuma tiver a hashtag, manda as mais recentes
+ * — o rodapé nunca fica vazio.
  */
 function listInstagram_() {
   const posts = fetchInstagramPosts_();
   // hashtag inteira: "#dimasdecampos" sim; "#dimasdecampos_fotos" ou "#dimasdecamposé" não
   const tag = new RegExp('(^|\\s)' + INSTAGRAM_TAG + '(?![\\w\\u00C0-\\u017F])', 'i');
   const tagged = posts.filter((m) => tag.test(m.caption || ''));
-  const chosen = (tagged.length ? tagged : posts).slice(0, INSTAGRAM_COUNT);
+  const chosen = (tagged.length ? tagged : posts).slice(0, INSTAGRAM_POOL);
   return chosen.map((m) => ({
     src: m.media_type === 'VIDEO' ? m.thumbnail_url : m.media_url,
     link: m.permalink,

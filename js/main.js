@@ -394,7 +394,13 @@ function renderInsta(items) {
 }
 
 async function loadInsta() {
-  const pick = (list) => list?.filter((it) => it.src && it.link).slice(0, INSTAGRAM.count);
+  // Sorteia quais publicações mostrar a cada visita (mesma semente da galeria:
+  // a lista guardada e a atualizada dão o mesmo sorteio, sem piscar)
+  const pick = (list) => list?.filter((it) => it.src && it.link)
+    .map((it) => [shuffleKey(it.link), it])
+    .sort((a, b) => a[0] - b[0])
+    .slice(0, INSTAGRAM.count)
+    .map(([, it]) => it);
   const fromCache = pick(cached?.instagram);
   if (fromCache?.length) renderInsta(fromCache); // visita repetida: aparece na hora
   const items = pick((await backend)?.instagram);
