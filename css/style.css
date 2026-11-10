@@ -7,25 +7,15 @@
   --muted: #a09c94;
   --accent: #d9b77e;
   --accent-ink: #1a1408;
-  --gap: 6px;
-  --pad: 16px;
-  --radius: 4px;
+  --gap: 4px;
+  --pad: 14px;
+  --radius: 3px;
+  color-scheme: dark;
   --serif: "Cormorant Garamond", Georgia, serif;
   --sans: Inter, system-ui, -apple-system, "Segoe UI", sans-serif;
 }
-@media (prefers-color-scheme: light) {
-  :root {
-    --bg: #faf8f4;
-    --surface: #ffffff;
-    --line: #e4dfd6;
-    --text: #1b1a18;
-    --muted: #6b665e;
-    --accent: #8a6524;
-    --accent-ink: #ffffff;
-  }
-}
-@media (min-width: 700px)  { :root { --gap: 10px; --pad: 32px; } }
-@media (min-width: 1100px) { :root { --pad: 48px; } }
+@media (min-width: 700px)  { :root { --gap: 6px; --pad: 28px; } }
+@media (min-width: 1100px) { :root { --pad: 40px; } }
 
 /* ---------- Base ---------- */
 *, *::before, *::after { box-sizing: border-box; }
@@ -87,50 +77,49 @@ h2 { font-size: clamp(1.75rem, 4vw, 2.5rem); }
 .nav .nav-cta { color: var(--text); border: 1px solid var(--line); padding: 8px 16px; }
 @media (max-width: 480px) { .nav a:not(.nav-cta) { display: none; } }
 
-/* ---------- Hero ---------- */
-.hero { padding: clamp(40px, 9vw, 96px) var(--pad) clamp(24px, 5vw, 48px); max-width: 900px; }
-.hero h1 { font-size: clamp(2.5rem, 8vw, 5rem); letter-spacing: -.01em; }
-.hero em { color: var(--accent); }
-.lead { margin: 16px 0 0; max-width: 46ch; color: var(--muted); font-size: 1.0625rem; }
-
 /* ---------- Filtros ---------- */
 .filters {
   display: flex; gap: 8px;
-  padding: 0 var(--pad) 16px;
+  padding: 12px var(--pad);
   overflow-x: auto; scrollbar-width: none;
 }
 .filters::-webkit-scrollbar { display: none; }
 .chip {
-  flex: none; min-height: 40px; padding: 0 16px;
+  flex: none; min-height: 34px; padding: 0 14px;
   border: 1px solid var(--line); border-radius: 999px;
   background: none; color: var(--muted);
-  font: 500 .875rem var(--sans); cursor: pointer;
+  font: 500 .8125rem var(--sans); cursor: pointer;
   transition: all .2s;
 }
 .chip:hover { color: var(--text); border-color: var(--muted); }
 .chip[aria-pressed="true"] { background: var(--text); border-color: var(--text); color: var(--bg); }
 
-/* ---------- Mosaico ---------- */
+/* ---------- Galeria em linhas justificadas ----------
+   Cada foto mantém a proporção real (--r = largura/altura): verticais em pé,
+   panorâmicas deitadas. As fotos de cada linha crescem juntas até preencher
+   a largura toda, então não sobram buracos. */
 .mosaic {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  grid-auto-rows: 44vw;
-  grid-auto-flow: dense;
-  gap: var(--gap);
-  padding: 0 var(--gap);
+  --row: 110px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+  padding: 3px;
 }
-@media (min-width: 700px)  { .mosaic { grid-template-columns: repeat(3, 1fr); grid-auto-rows: 30vw; padding: 0 var(--pad); } }
-@media (min-width: 1100px) { .mosaic { grid-template-columns: repeat(4, 1fr); grid-auto-rows: min(22vw, 380px); } }
+@media (min-width: 600px)  { .mosaic { --row: 150px; } }
+@media (min-width: 900px)  { .mosaic { --row: 180px; } }
+@media (min-width: 1300px) { .mosaic { --row: 210px; } }
+/* "Mola" invisível no fim: a última linha fica no tamanho natural em vez de
+   esticar (esticar cortaria as fotos em cima e embaixo). */
+.mosaic::after { content: ""; flex: 1000000 1 0; }
 
 .tile {
+  flex: calc(var(--r, 1.5) * 1000) 1 calc(var(--r, 1.5) * var(--row));
+  aspect-ratio: var(--r, 1.5);
   position: relative; overflow: hidden;
-  padding: 0; border: 0; border-radius: var(--radius);
+  padding: 0; border: 0; border-radius: 0;
   background: var(--surface); color: #fff;
   cursor: zoom-in; text-align: left;
 }
-.tile.tall { grid-row: span 2; }
-.tile.wide { grid-column: span 2; }
-.tile.big  { grid-column: span 2; grid-row: span 2; }
 
 .tile img {
   width: 100%; height: 100%; object-fit: cover;
@@ -143,23 +132,18 @@ h2 { font-size: clamp(1.75rem, 4vw, 2.5rem); }
 .tile-info {
   position: absolute; inset: auto 0 0 0;
   display: flex; flex-direction: column; gap: 2px;
-  padding: 40px 14px 12px;
+  padding: 32px 10px 8px;
   background: linear-gradient(transparent, rgba(0, 0, 0, .7));
   opacity: 0; transform: translateY(6px);
   transition: opacity .3s, transform .3s;
   pointer-events: none;
 }
 .tile:hover .tile-info, .tile:focus-visible .tile-info { opacity: 1; transform: none; }
-.tile-info strong { font: 500 1.125rem/1.2 var(--serif); }
+.tile-info strong { font: 500 1rem/1.2 var(--serif); }
 .tile-info small { font-size: .6875rem; letter-spacing: .14em; text-transform: uppercase; opacity: .8; }
 @media (hover: none) { .tile-info { display: none; } }
 
 .empty { padding: 48px var(--pad); color: var(--muted); text-align: center; }
-
-/* ---------- Contato ---------- */
-.contact { padding: clamp(56px, 10vw, 112px) var(--pad); text-align: center; }
-.contact p { margin: 12px auto 24px; max-width: 44ch; color: var(--muted); }
-.contact-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; }
 
 /* ---------- Rodapé / Instagram ---------- */
 .footer { background: var(--surface); border-top: 1px solid var(--line); padding-top: clamp(32px, 6vw, 56px); }
@@ -169,24 +153,42 @@ h2 { font-size: clamp(1.75rem, 4vw, 2.5rem); }
 }
 .insta-head h2 a:hover { color: var(--accent); }
 
-.insta-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--gap); padding: 0 var(--gap); }
-@media (min-width: 700px) { .insta-grid { grid-template-columns: repeat(6, 1fr); padding: 0 var(--pad); } }
+/* Mesmo visual da galeria: linhas justificadas de ponta a ponta, proporção real
+   de cada publicação (--r é medido quando a imagem carrega). Sem "mola": com
+   poucas publicações a linha preenche a largura toda. */
+.insta-grid {
+  --row: 110px;
+  display: flex; flex-wrap: wrap;
+  gap: 3px; padding: 3px;
+}
+@media (min-width: 600px)  { .insta-grid { --row: 150px; } }
+@media (min-width: 900px)  { .insta-grid { --row: 180px; } }
+@media (min-width: 1300px) { .insta-grid { --row: 210px; } }
 
 .insta-item {
-  position: relative; aspect-ratio: 1; overflow: hidden;
-  border-radius: var(--radius); background: var(--line);
+  flex: calc(var(--r, 1) * 1000) 1 calc(var(--r, 1) * var(--row));
+  aspect-ratio: var(--r, 1);
+  position: relative; overflow: hidden;
+  background: var(--bg);
 }
-.insta-item img { width: 100%; height: 100%; object-fit: cover; transition: transform .6s, opacity .3s; }
+.insta-item img {
+  width: 100%; height: 100%; object-fit: cover;
+  opacity: 0; transform: scale(1.03);
+  transition: opacity .6s ease, transform .8s cubic-bezier(.2, .7, .2, 1);
+}
+.insta-item img.loaded { opacity: 1; transform: none; }
+.insta-item:hover img.loaded, .insta-item:focus-visible img.loaded { transform: scale(1.05); }
 .insta-item::after {
   content: "Ver no Instagram ↗";
-  position: absolute; inset: 0; display: grid; place-items: center;
-  padding: 8px; text-align: center;
-  background: rgba(0, 0, 0, .55); color: #fff;
-  font-size: .75rem; font-weight: 500;
-  opacity: 0; transition: opacity .3s;
+  position: absolute; inset: auto 0 0 0;
+  padding: 32px 10px 8px;
+  background: linear-gradient(transparent, rgba(0, 0, 0, .7)); color: #fff;
+  font-size: .6875rem; letter-spacing: .14em; text-transform: uppercase;
+  opacity: 0; transform: translateY(6px);
+  transition: opacity .3s, transform .3s;
 }
-.insta-item:hover::after, .insta-item:focus-visible::after { opacity: 1; }
-.insta-item:hover img { transform: scale(1.06); }
+.insta-item:hover::after, .insta-item:focus-visible::after { opacity: 1; transform: none; }
+@media (hover: none) { .insta-item::after { display: none; } }
 
 .footer-bottom {
   display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px 24px;

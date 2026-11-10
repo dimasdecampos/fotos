@@ -2,14 +2,15 @@
    CONFIGURAÇÃO — edite aqui
    ========================================================= */
 
-// Instagram: troque o usuário. Com "token" vazio, o rodapé mostra fotos de exemplo.
-// Para o feed real, gere um token na Instagram API (conta Profissional/Criador)
-// em developers.facebook.com e cole abaixo — ou, melhor, aponte "endpoint"
-// para um proxy seu, para não expor o token no navegador.
+// Backend no Google Apps Script (veja apps-script/LEIAME.md). Ele fornece:
+// - as fotos que você marcou com ESTRELA no Drive (aparecem em destaque);
+// - o feed do Instagram, com o token guardado lá (nunca aqui no site).
+// Cole aqui a URL do app da Web (termina em /exec). Vazio = sem destaques e
+// rodapé com fotos de exemplo.
+const BACKEND_URL = 'https://script.google.com/macros/s/AKfycbyCLOhaxqmNvJtSwrCssdFWviXVb2nskjTk9Kh2im5l6d_AL2e1xO4Du2-JQGJUJYPzRw/exec';
+
 const INSTAGRAM = {
-  user: 'seuusuario',
-  token: '',
-  endpoint: 'https://graph.instagram.com/me/media',
+  user: 'dimasdecampos',
   count: 6,
 };
 
@@ -50,7 +51,7 @@ const DEMO_PHOTOS = [
 ].map(([title, cat, shape], i) => {
   const dims = { big: [1200, 1200], tall: [800, 1200], wide: [1200, 800] }[shape] || [800, 800];
   return {
-    title, cat, shape,
+    title, cat, shape, ratio: dims[0] / dims[1],
     thumb: demo(`foto${i}`, dims[0], dims[1]),
     full: demo(`foto${i}`, dims[0] * 2, dims[1] * 2),
   };
@@ -64,10 +65,17 @@ const mosaic = $('#mosaic');
 const filters = $('.filters');
 const empty = $('#empty');
 
-const fadeIn = (img) => {
+const fadeIn = (img, fallbacks = []) => {
   const done = () => img.classList.add('loaded');
-  if (img.complete && img.naturalWidth) done();
-  else img.addEventListener('load', done, { once: true });
+  if (img.complete && img.naturalWidth) return done();
+  img.addEventListener('load', done, { once: true });
+  // O Google às vezes recusa miniaturas quando muitas são pedidas juntas:
+  // tenta de novo pelos endereços alternativos, um de cada vez.
+  img.addEventListener('error', function retry() {
+    const next = fallbacks.shift();
+    if (next) setTimeout(() => { img.src = next; }, 300 + Math.random() * 700);
+    else img.removeEventListener('error', retry);
+  });
 };
 
 let PHOTOS = DEMO_PHOTOS;
@@ -81,25 +89,29 @@ function render() {
 
   PHOTOS.forEach((p, i) => {
     const tile = document.createElement('button');
-    tile.className = `tile ${p.shape}`.trim();
+    tile.className = `tile ${p.shape}${p.featured ? ' featured' : ''}`.trim();
     tile.dataset.index = i;
     tile.dataset.cat = p.cat;
-    tile.setAttribute('aria-label', `Ampliar: ${p.title} (${p.cat})`);
+    tile.style.setProperty('--r', p.ratio.toFixed(3));
+    tile.setAttribute('aria-label', `Ampliar: ${p.title || 'foto'} (${p.cat})`);
 
     const img = document.createElement('img');
     img.src = p.thumb;
     img.alt = p.title;
     img.loading = i < 4 ? 'eager' : 'lazy';
     img.decoding = 'async';
-    fadeIn(img);
+    fadeIn(img, p.fallbacks ? [...p.fallbacks] : []);
 
-    const info = document.createElement('span');
-    info.className = 'tile-info';
-    info.innerHTML = '<strong></strong><small></small>';
-    info.children[0].textContent = p.title;
-    info.children[1].textContent = p.cat;
-
-    tile.append(img, info);
+    tile.append(img);
+    // Só mostra legenda quando o nome parece um título de verdade (não "IMG_1234" ou números)
+    if (p.title) {
+      const info = document.createElement('span');
+      info.className = 'tile-info';
+      info.innerHTML = '<strong></strong><small></small>';
+      info.children[0].textContent = p.title;
+      info.children[1].textContent = p.cat;
+      tile.append(info);
+    }
     mosaic.append(tile);
   });
 
@@ -152,16 +164,19 @@ async function driveList(parentId) {
 }
 
 const driveImg = (id, w) => `https://drive.google.com/thumbnail?id=${id}&sz=w${w}`;
-const cleanName = (n) => n.replace(/\.[^.]+$/, '').replace(/[_-]+/g, ' ').trim();
+const driveAlt = (id, w) => `https://lh3.googleusercontent.com/d/${id}=w${w}`;
+const cleanName = (n) => {
+  const t = n.replace(/\.[^.]+$/, '').replace(/[_-]+/g, ' ').trim();
+  // nomes gerados por câmera/redes sociais (só números, IMG 1234, DSC 0001...) viram foto sem título
+  return /^(img|dsc|dscn|pxl|photo|foto)?[\s\d]*[a-z]?$/i.test(t) ? '' : t;
+};
 
-function shapeOf(meta, n) {
-  if (meta?.width && meta?.height) {
-    const swap = [90, 270].includes(meta.rotation);
-    const ratio = swap ? meta.height / meta.width : meta.width / meta.height;
-    if (ratio >= 1.3) return 'wide';
-    if (ratio <= 0.77) return 'tall';
-  }
-  return n % 7 === 0 ? 'big' : ''; // de vez em quando, um destaque 2x2
+// Proporção largura/altura da foto (considera fotos giradas). Sem metadados, assume 3:2.
+function ratioOf(meta) {
+  if (!meta?.width || !meta?.height) return 1.5;
+  const swap = [90, 270].includes(meta.rotation);
+  const r = swap ? meta.height / meta.width : meta.width / meta.height;
+  return Math.min(Math.max(r, 0.5), 3); // limita panorâmicas/verticais extremas
 }
 
 async function loadDrive() {
@@ -176,15 +191,38 @@ async function loadDrive() {
   const photos = [];
   for (const { cat, files } of groups) {
     for (const f of files) {
+      const ratio = ratioOf(f.imageMediaMetadata);
+      // Miniatura no tamanho exibido (~2x para telas retina); o Google redimensiona no servidor.
+      // A versão grande (lightbox) só carrega ao abrir.
+      const thumbW = Math.min(900, Math.round(420 * ratio));
       photos.push({
-        title: cleanName(f.name), cat,
-        shape: shapeOf(f.imageMediaMetadata, photos.length),
-        thumb: driveImg(f.id, 800),
-        full: driveImg(f.id, 2000),
+        id: f.id, title: cleanName(f.name), cat, ratio,
+        shape: ratio >= 1.3 ? 'wide' : ratio <= 0.77 ? 'tall' : '',
+        thumb: driveImg(f.id, thumbW),
+        fallbacks: [driveAlt(f.id, thumbW), `${driveImg(f.id, thumbW)}&r=1`],
+        full: driveImg(f.id, 1600),
       });
     }
   }
   return photos;
+}
+
+/* =========================================================
+   Backend (Apps Script): destaques + Instagram
+   ========================================================= */
+// Uma única chamada serve os dois. Se demorar ou falhar, o site segue sem eles.
+const backend = !BACKEND_URL ? Promise.resolve(null) : Promise.race([
+  fetch(BACKEND_URL).then((r) => (r.ok ? r.json() : null)),
+  new Promise((resolve) => setTimeout(() => resolve(null), 15000)),
+]).catch((err) => { console.warn('Backend indisponível:', err); return null; });
+
+// Fotos com estrela vão para o começo, mantendo a ordem entre si
+function applyFeatured(starredIds) {
+  const starred = new Set(starredIds || []);
+  if (!starred.size || !PHOTOS.some((p) => starred.has(p.id))) return false;
+  PHOTOS.forEach((p) => { p.featured = starred.has(p.id); });
+  PHOTOS = [...PHOTOS.filter((p) => p.featured), ...PHOTOS.filter((p) => !p.featured)];
+  return true;
 }
 
 (async () => {
@@ -197,7 +235,14 @@ async function loadDrive() {
       console.warn('Drive indisponível, mostrando exemplos:', err);
     }
   }
+  // Mostra a galeria já; se o backend responder logo, desenha com os destaques
+  const quick = await Promise.race([backend, new Promise((r) => setTimeout(() => r(undefined), 1500))]);
+  if (quick) applyFeatured(quick.starred);
   render();
+  if (quick === undefined) {
+    const data = await backend; // chegou depois: redesenha com destaques
+    if (data && applyFeatured(data.starred) && !lb.open) render();
+  }
 })();
 
 /* =========================================================
@@ -211,7 +256,7 @@ function show(n) {
   pos = (n + visible.length) % visible.length;
   const p = PHOTOS[visible[pos]];
   lbImg.src = p.thumb; // aparece na hora; troca pela versão grande quando carregar
-  lbImg.alt = p.title;
+  lbImg.alt = p.title || 'Foto';
   const hi = new Image();
   hi.onload = () => { if (PHOTOS[visible[pos]] === p) lbImg.src = p.full; };
   hi.src = p.full;
@@ -273,32 +318,27 @@ function renderInsta(items) {
     img.src = it.src;
     img.alt = it.alt || 'Publicação no Instagram';
     img.loading = 'lazy';
+    img.decoding = 'async';
+    // A API não informa o tamanho: mede ao carregar e ajusta a proporção do quadro
+    img.addEventListener('load', () => {
+      if (img.naturalWidth && img.naturalHeight) {
+        a.style.setProperty('--r', (img.naturalWidth / img.naturalHeight).toFixed(3));
+      }
+    }, { once: true });
+    fadeIn(img);
     a.append(img);
     return a;
   }));
 }
 
 async function loadInsta() {
-  const placeholders = Array.from({ length: INSTAGRAM.count }, (_, i) => ({
+  const data = await backend;
+  const items = data?.instagram?.filter((it) => it.src && it.link).slice(0, INSTAGRAM.count);
+  if (items?.length) return renderInsta(items);
+  // Sem backend/token ainda: fotos de exemplo apontando para o perfil
+  renderInsta(Array.from({ length: INSTAGRAM.count }, (_, i) => ({
     src: demo(`insta${i}`, 400, 400), link: profile, alt: 'Foto de exemplo',
-  }));
-  if (!INSTAGRAM.token) return renderInsta(placeholders);
-
-  try {
-    const url = `${INSTAGRAM.endpoint}?fields=id,caption,media_type,media_url,thumbnail_url,permalink`
-      + `&limit=${INSTAGRAM.count}&access_token=${encodeURIComponent(INSTAGRAM.token)}`;
-    const res = await fetch(url);
-    if (!res.ok) throw new Error(`Instagram respondeu ${res.status}`);
-    const { data } = await res.json();
-    renderInsta(data.map((m) => ({
-      src: m.media_type === 'VIDEO' ? m.thumbnail_url : m.media_url,
-      link: m.permalink,
-      alt: (m.caption || '').slice(0, 120),
-    })));
-  } catch (err) {
-    console.warn('Feed do Instagram indisponível, usando exemplos:', err);
-    renderInsta(placeholders);
-  }
+  })));
 }
 loadInsta();
 
