@@ -6,7 +6,21 @@
   <meta name="color-scheme" content="dark">
   <meta name="theme-color" content="#0e0e0f">
   <title>Dimas de Campos — Fotografia</title>
-  <meta name="description" content="Portfólio de fotografia: retratos, natureza, viagens e eventos.">
+  <meta name="description" content="Fotografia de natureza, aventura e viagens: cachoeiras, mar, paisagens e pássaros.">
+  <link rel="icon" href="img/favicon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="img/favicon.svg">
+  <!-- Prévia ao compartilhar o link (WhatsApp, Instagram, Facebook...) -->
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Dimas de Campos Fotografia">
+  <meta property="og:title" content="Dimas de Campos — Fotografia">
+  <meta property="og:description" content="Fotografia de natureza, aventura e viagens: cachoeiras, mar, paisagens e pássaros.">
+  <meta property="og:url" content="https://dimasdecampos.github.io/fotos/">
+  <meta property="og:image" content="https://dimasdecampos.github.io/fotos/img/capa.jpg">
+  <meta property="og:image:width" content="1000">
+  <meta property="og:image:height" content="525">
+  <meta property="og:image:alt" content="Dimas de Campos sentado sob uma cachoeira iluminada por um feixe de luz">
+  <meta property="og:locale" content="pt_BR">
+  <meta name="twitter:card" content="summary_large_image">
   <!-- Conexões antecipadas com os servidores das fotos, destaques e Instagram -->
   <link rel="preconnect" href="https://www.googleapis.com">
   <link rel="preconnect" href="https://drive.google.com">
@@ -46,12 +60,14 @@
     </div>
     <div class="insta-grid" id="insta-grid"></div>
     <div class="footer-bottom">
+      <p class="about">Fotografia de natureza, aventura e viagens.</p>
       <span>© <span id="year"></span> Dimas de Campos Fotografia</span>
       <a href="#">Voltar ao topo ↑</a>
     </div>
   </footer>
 
   <dialog class="lightbox" id="lightbox" aria-label="Visualizador de fotos">
+    <div class="lb-bg" aria-hidden="true"></div>
     <button class="lb-btn lb-close" data-lb="close" aria-label="Fechar">✕</button>
     <button class="lb-btn lb-prev" data-lb="prev" aria-label="Foto anterior">‹</button>
     <figure>

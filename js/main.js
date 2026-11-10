@@ -118,6 +118,8 @@ function render() {
   });
 
   // Filtros em ordem alfabética, com "Geral" (fotos soltas na raiz) por último
+  revealOnScroll();
+
   const cats = [...new Set(PHOTOS.map((p) => p.cat))]
     .sort((a, b) => (a === 'Geral') - (b === 'Geral') || a.localeCompare(b, 'pt-BR'));
   if (cats.length < 2) return; // com uma só categoria, filtros não fazem sentido
@@ -125,7 +127,12 @@ function render() {
   ['Todas', ...cats].forEach((cat, i) => {
     const chip = document.createElement('button');
     chip.className = 'chip';
+    const total = cat === 'Todas' ? PHOTOS.length : PHOTOS.filter((p) => p.cat === cat).length;
     chip.textContent = cat;
+    const count = document.createElement('span');
+    count.className = 'count';
+    count.textContent = total;
+    chip.append(count);
     chip.setAttribute('aria-pressed', String(i === 0));
     chip.addEventListener('click', () => {
       filters.querySelectorAll('.chip').forEach((c) => c.setAttribute('aria-pressed', String(c === chip)));
@@ -136,10 +143,42 @@ function render() {
         if (show) visible.push(Number(t.dataset.index));
       });
       empty.hidden = visible.length > 0;
+      // Fotos que estavam escondidas aparecem já visíveis (sem esperar rolar)
+      mosaic.querySelectorAll('.tile.reveal:not(.in)').forEach((t) => t.classList.add('in'));
+      // Se os filtros estão grudados (galeria rolada), volta ao começo da galeria
+      const top = $('#portfolio').getBoundingClientRect().top;
+      if (top < 0) scrollTo({ top: scrollY + top, behavior: 'smooth' });
     });
     filters.append(chip);
   });
 }
+
+// Fotos abaixo da primeira tela surgem suavemente quando entram na tela
+const revealer = 'IntersectionObserver' in window && !matchMedia('(prefers-reduced-motion: reduce)').matches
+  ? new IntersectionObserver((entries) => entries.forEach((e) => {
+    if (!e.isIntersecting) return;
+    e.target.classList.add('in');
+    revealer.unobserve(e.target);
+  }), { rootMargin: '0px 0px -40px 0px' })
+  : null;
+function revealOnScroll() {
+  if (!revealer) return;
+  revealer.disconnect();
+  requestAnimationFrame(() => {
+    mosaic.querySelectorAll('.tile').forEach((t) => {
+      if (t.getBoundingClientRect().top > innerHeight) {
+        t.classList.add('reveal');
+        revealer.observe(t);
+      }
+    });
+  });
+}
+
+// Altura do topo, para os filtros grudarem logo abaixo dele
+const topbar = $('.topbar');
+const setTopbarH = () => document.documentElement.style.setProperty('--topbar-h', `${topbar.offsetHeight}px`);
+setTopbarH();
+addEventListener('resize', setTopbarH);
 
 /* =========================================================
    Google Drive
@@ -322,7 +361,14 @@ function show(n) {
   const hi = new Image();
   hi.onload = () => { if (PHOTOS[visible[pos]] === p) lbImg.src = p.full; };
   hi.src = p.full;
-  $('#lb-title').textContent = p.title;
+  // Legenda: título (quando o arquivo tem nome de verdade) + categoria
+  const title = $('#lb-title');
+  title.replaceChildren();
+  if (p.title) title.append(p.title);
+  const cat = document.createElement('small');
+  cat.textContent = p.cat;
+  title.append(cat);
+  lb.style.setProperty('--lb-img', `url("${p.thumb}")`);
   $('#lb-count').textContent = `${pos + 1} / ${visible.length}`;
 }
 
@@ -350,15 +396,41 @@ lb.addEventListener('close', () => {
   mosaic.querySelector(`[data-index="${visible[pos]}"]`)?.focus();
 });
 
-// Deslizar no celular
-let startX = null;
-lb.addEventListener('touchstart', (e) => { startX = e.touches[0].clientX; }, { passive: true });
+// Deslizar no celular: para os lados troca de foto; para baixo fecha
+// (a foto acompanha o dedo e some ao soltar)
+const lbFig = lb.querySelector('figure');
+let touch = null;
+lb.addEventListener('touchstart', (e) => {
+  touch = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+  lbFig.classList.add('swiping');
+}, { passive: true });
+lb.addEventListener('touchmove', (e) => {
+  if (!touch) return;
+  const dy = e.touches[0].clientY - touch.y;
+  const dx = e.touches[0].clientX - touch.x;
+  if (dy > 0 && dy > Math.abs(dx)) {
+    lbFig.style.transform = `translateY(${dy}px) scale(${1 - Math.min(dy, 400) / 2000})`;
+    lbFig.style.opacity = String(1 - Math.min(dy, 300) / 450);
+  }
+}, { passive: true });
 lb.addEventListener('touchend', (e) => {
-  if (startX === null) return;
-  const dx = e.changedTouches[0].clientX - startX;
-  if (Math.abs(dx) > 50) show(pos + (dx < 0 ? 1 : -1));
-  startX = null;
+  if (!touch) return;
+  const dx = e.changedTouches[0].clientX - touch.x;
+  const dy = e.changedTouches[0].clientY - touch.y;
+  touch = null;
+  lbFig.classList.remove('swiping');
+  if (dy > 90 && dy > Math.abs(dx)) {
+    lbFig.style.transform = 'translateY(40vh)';
+    lbFig.style.opacity = '0';
+    setTimeout(() => lb.close(), 200);
+    return;
+  }
+  lbFig.style.transform = '';
+  lbFig.style.opacity = '';
+  if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy)) show(pos + (dx < 0 ? 1 : -1));
 });
+// Ao reabrir, a foto volta ao lugar
+lb.addEventListener('close', () => { lbFig.style.transform = ''; lbFig.style.opacity = ''; });
 
 /* =========================================================
    Instagram no rodapé

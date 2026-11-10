@@ -82,11 +82,16 @@ h2 { font-size: clamp(1.75rem, 4vw, 2.5rem); }
 }
 
 /* ---------- Filtros ---------- */
+/* Fixos logo abaixo do topo ao rolar (--topbar-h é medido no JS) */
 .filters {
+  position: sticky; top: var(--topbar-h, 60px); z-index: 15;
   display: flex; gap: 8px;
-  padding: 12px var(--pad);
+  padding: 10px var(--pad);
   overflow-x: auto; scrollbar-width: none;
+  background: color-mix(in srgb, var(--bg) 82%, transparent);
+  backdrop-filter: blur(14px);
 }
+.filters:empty { display: none; }
 .filters::-webkit-scrollbar { display: none; }
 .chip {
   flex: none; min-height: 34px; padding: 0 14px;
@@ -97,6 +102,7 @@ h2 { font-size: clamp(1.75rem, 4vw, 2.5rem); }
 }
 .chip:hover { color: var(--text); border-color: var(--muted); }
 .chip[aria-pressed="true"] { background: var(--text); border-color: var(--text); color: var(--bg); }
+.chip .count { margin-left: 6px; font-size: .75rem; opacity: .55; font-variant-numeric: tabular-nums; }
 
 /* ---------- Galeria em linhas justificadas ----------
    Cada foto mantém a proporção real (--r = largura/altura): verticais em pé,
@@ -124,6 +130,10 @@ h2 { font-size: clamp(1.75rem, 4vw, 2.5rem); }
   background: var(--surface); color: #fff;
   cursor: zoom-in; text-align: left;
 }
+
+/* Fotos abaixo da primeira tela surgem suavemente ao entrar na tela */
+.tile.reveal { opacity: 0; transform: translateY(18px); }
+.tile.reveal.in { opacity: 1; transform: none; transition: opacity .7s ease, transform .7s cubic-bezier(.2, .7, .2, 1); }
 
 /* Esqueleto enquanto a primeira visita carrega a lista de fotos */
 .tile.skeleton {
@@ -172,14 +182,20 @@ h2 { font-size: clamp(1.75rem, 4vw, 2.5rem); }
 /* Mesmo visual da galeria: linhas justificadas de ponta a ponta, proporção real
    de cada publicação (--r é medido quando a imagem carrega). Sem "mola": com
    poucas publicações a linha preenche a largura toda. */
+/* Computador: as 6 publicações sempre numa única linha (nunca sobra uma sozinha
+   e gigante embaixo). Celular: grade 3×2 de quadrados iguais. */
 .insta-grid {
-  --row: 110px;
-  display: flex; flex-wrap: wrap;
+  --row: 150px;
+  display: flex; flex-wrap: nowrap;
   gap: 3px; padding: 3px;
 }
-@media (min-width: 600px)  { .insta-grid { --row: 150px; } }
 @media (min-width: 900px)  { .insta-grid { --row: 180px; } }
 @media (min-width: 1300px) { .insta-grid { --row: 210px; } }
+.insta-grid .insta-item { min-width: 0; }
+@media (max-width: 699px) {
+  .insta-grid { display: grid; grid-template-columns: repeat(3, 1fr); }
+  .insta-grid .insta-item { aspect-ratio: 1; }
+}
 
 .insta-item {
   flex: calc(var(--r, 1) * 1000) 1 calc(var(--r, 1) * var(--row));
@@ -212,13 +228,22 @@ h2 { font-size: clamp(1.75rem, 4vw, 2.5rem); }
   color: var(--muted); font-size: .8125rem;
 }
 .footer-bottom a:hover { color: var(--text); }
+.about { flex-basis: 100%; margin: 0 0 4px; font: italic 500 1.0625rem var(--serif); color: var(--text); }
 
 /* ---------- Lightbox ---------- */
 .lightbox {
   width: 100vw; height: 100dvh; max-width: none; max-height: none;
-  margin: 0; padding: 0; border: 0;
-  background: rgba(8, 8, 9, .96); color: #fff;
+  margin: 0; padding: 0; border: 0; overflow: hidden;
+  background: #08080a; color: #fff;
 }
+/* Fundo: a própria foto, bem desfocada e escurecida */
+.lb-bg {
+  position: absolute; inset: -60px; z-index: 0;
+  background: center / cover no-repeat var(--lb-img, none);
+  filter: blur(40px) saturate(1.2) brightness(.35);
+}
+.lightbox figure { position: relative; z-index: 1; transition: transform .25s ease, opacity .25s ease; }
+.lightbox figure.swiping { transition: none; }
 .lightbox[open] { display: grid; place-items: center; animation: fade .25s ease; }
 .lightbox::backdrop { background: #000; }
 @keyframes fade { from { opacity: 0; } }
@@ -234,6 +259,11 @@ h2 { font-size: clamp(1.75rem, 4vw, 2.5rem); }
   font-size: .875rem; color: rgba(255, 255, 255, .7);
 }
 #lb-title { font: 500 1.125rem var(--serif); color: #fff; }
+#lb-title small {
+  margin-left: 10px; font: 500 .6875rem var(--sans); letter-spacing: .16em;
+  text-transform: uppercase; color: var(--accent);
+}
+#lb-title small:only-child { margin-left: 0; }
 
 .lb-btn {
   position: fixed; z-index: 2;
