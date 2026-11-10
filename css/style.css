@@ -66,7 +66,7 @@ h2 { font-size: clamp(1.75rem, 4vw, 2.5rem); }
   backdrop-filter: blur(14px);
   border-bottom: 1px solid var(--line);
 }
-.brand { font-family: var(--serif); font-size: 1.375rem; font-weight: 600; line-height: 1; }
+.brand { font-family: var(--serif); font-size: 1.375rem; font-weight: 600; line-height: 1; white-space: nowrap; }
 .brand span {
   display: block; margin-top: 3px;
   font: 500 .625rem var(--sans); letter-spacing: .22em; text-transform: uppercase; color: var(--muted);
@@ -74,8 +74,12 @@ h2 { font-size: clamp(1.75rem, 4vw, 2.5rem); }
 .nav { display: flex; align-items: center; gap: 4px; font-size: .9375rem; }
 .nav a { padding: 10px 12px; border-radius: 999px; color: var(--muted); transition: color .2s; }
 .nav a:hover { color: var(--text); }
-.nav .nav-cta { color: var(--text); border: 1px solid var(--line); padding: 8px 16px; }
-@media (max-width: 480px) { .nav a:not(.nav-cta) { display: none; } }
+/* No celular o "Portfólio" sai (a galeria já é o começo da página) e o
+   "Instagram" continua, como um botão discreto. */
+@media (max-width: 480px) {
+  .nav a[href="#portfolio"] { display: none; }
+  .nav a[href="#instagram"] { color: var(--text); border: 1px solid var(--line); padding: 7px 14px; font-size: .875rem; }
+}
 
 /* ---------- Filtros ---------- */
 .filters {
@@ -120,6 +124,15 @@ h2 { font-size: clamp(1.75rem, 4vw, 2.5rem); }
   background: var(--surface); color: #fff;
   cursor: zoom-in; text-align: left;
 }
+
+/* Esqueleto enquanto a primeira visita carrega a lista de fotos */
+.tile.skeleton {
+  cursor: default;
+  background: linear-gradient(100deg, var(--surface) 30%, #232326 50%, var(--surface) 70%);
+  background-size: 300% 100%;
+  animation: shimmer 1.4s linear infinite;
+}
+@keyframes shimmer { from { background-position: 100% 0; } to { background-position: -200% 0; } }
 
 .tile img {
   width: 100%; height: 100%; object-fit: cover;

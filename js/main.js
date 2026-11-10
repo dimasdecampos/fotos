@@ -98,7 +98,9 @@ function render() {
     const img = document.createElement('img');
     img.src = p.thumb;
     img.alt = p.title;
-    img.loading = i < 4 ? 'eager' : 'lazy';
+    // Camadas: as primeiras fotos (topo da tela) chegam primeiro, o resto conforme rola
+    img.loading = i < 12 ? 'eager' : 'lazy';
+    if (i < 6) img.fetchPriority = 'high';
     img.decoding = 'async';
     fadeIn(img, p.fallbacks ? [...p.fallbacks] : []);
 
@@ -184,10 +186,12 @@ async function loadDrive() {
   const groups = [
     { cat: 'Geral', files: root.filter((f) => f.mimeType.startsWith('image/')) },
   ];
-  for (const folder of root.filter((f) => f.mimeType === FOLDER_MIME)) {
-    const inner = await driveList(folder.id);
-    groups.push({ cat: folder.name, files: inner.filter((f) => f.mimeType.startsWith('image/')) });
-  }
+  // Subpastas lidas ao mesmo tempo (antes era uma de cada vez)
+  const folders = root.filter((f) => f.mimeType === FOLDER_MIME);
+  const inners = await Promise.all(folders.map((folder) => driveList(folder.id)));
+  folders.forEach((folder, i) => {
+    groups.push({ cat: folder.name, files: inners[i].filter((f) => f.mimeType.startsWith('image/')) });
+  });
   const photos = [];
   for (const { cat, files } of groups) {
     for (const f of files) {
@@ -219,30 +223,72 @@ const backend = !BACKEND_URL ? Promise.resolve(null) : Promise.race([
 // Fotos com estrela vão para o começo, mantendo a ordem entre si
 function applyFeatured(starredIds) {
   const starred = new Set(starredIds || []);
-  if (!starred.size || !PHOTOS.some((p) => starred.has(p.id))) return false;
   PHOTOS.forEach((p) => { p.featured = starred.has(p.id); });
   PHOTOS = [...PHOTOS.filter((p) => p.featured), ...PHOTOS.filter((p) => !p.featured)];
-  return true;
+}
+
+/* ---------- Carregamento em camadas ----------
+   1. Visita repetida: desenha na hora a galeria guardada da última visita.
+      Primeira visita: mostra um esqueleto animado enquanto busca.
+   2. Busca a lista nova no Drive (subpastas em paralelo) e os destaques.
+   3. Só redesenha se algo mudou, e guarda o resultado para a próxima visita. */
+const CACHE_KEY = 'galeria-v1';
+const readCache = () => { try { return JSON.parse(localStorage.getItem(CACHE_KEY)); } catch { return null; } };
+const writeCache = (data) => { try { localStorage.setItem(CACHE_KEY, JSON.stringify(data)); } catch { /* sem espaço/privado */ } };
+const wait = (ms) => new Promise((r) => setTimeout(() => r(undefined), ms));
+const cached = readCache();
+
+function skeleton() {
+  mosaic.classList.add('loading');
+  mosaic.replaceChildren(...[1.5, 1, 1.5, 0.67, 1.5, 1.33, 1.5, 0.75, 1.5, 1.5, 1, 1.5].map((r) => {
+    const s = document.createElement('span');
+    s.className = 'tile skeleton';
+    s.setAttribute('aria-hidden', 'true');
+    s.style.setProperty('--r', r);
+    return s;
+  }));
+}
+
+let shownSig = '';
+function showGallery(photos, starred) {
+  if ($('#lightbox').open) return; // não troca a galeria com uma foto aberta
+  PHOTOS = photos.map((p) => ({ ...p, featured: false }));
+  applyFeatured(starred);
+  const sig = PHOTOS.map((p) => p.id + (p.featured ? '*' : '')).join();
+  if (sig === shownSig) return; // nada mudou: evita piscar
+  shownSig = sig;
+  mosaic.classList.remove('loading');
+  render();
 }
 
 (async () => {
+  if (cached?.photos?.length) showGallery(cached.photos, cached.starred);
+  else skeleton();
+
+  let photos = null;
   if (DRIVE.folderId && DRIVE.apiKey) {
     try {
-      const photos = await loadDrive();
-      if (photos.length) PHOTOS = photos;
-      else console.warn('Pasta do Drive sem imagens; mostrando exemplos.');
+      photos = await loadDrive();
+      if (!photos.length) console.warn('Pasta do Drive sem imagens; mostrando exemplos.');
     } catch (err) {
-      console.warn('Drive indisponível, mostrando exemplos:', err);
+      console.warn('Drive indisponível:', err);
     }
   }
-  // Mostra a galeria já; se o backend responder logo, desenha com os destaques
-  const quick = await Promise.race([backend, new Promise((r) => setTimeout(() => r(undefined), 1500))]);
-  if (quick) applyFeatured(quick.starred);
-  render();
-  if (quick === undefined) {
-    const data = await backend; // chegou depois: redesenha com destaques
-    if (data && applyFeatured(data.starred) && !lb.open) render();
-  }
+  const fresh = photos?.length ? photos : null;
+  photos = fresh || cached?.photos || DEMO_PHOTOS;
+
+  // O backend já está carregando desde o início: na primeira visita espera só
+  // um pouquinho por ele, para não desenhar e logo depois reordenar.
+  const quick = await Promise.race([backend, wait(cached ? 0 : 700)]);
+  showGallery(photos, quick?.starred ?? cached?.starred ?? []);
+  const data = quick === undefined ? await backend : quick;
+  if (data) showGallery(photos, data.starred);
+
+  writeCache({
+    photos: fresh || cached?.photos || [],
+    starred: data?.starred ?? cached?.starred ?? [],
+    instagram: data?.instagram?.length ? data.instagram : (cached?.instagram || []),
+  });
 })();
 
 /* =========================================================
@@ -332,9 +378,15 @@ function renderInsta(items) {
 }
 
 async function loadInsta() {
-  const data = await backend;
-  const items = data?.instagram?.filter((it) => it.src && it.link).slice(0, INSTAGRAM.count);
-  if (items?.length) return renderInsta(items);
+  const pick = (list) => list?.filter((it) => it.src && it.link).slice(0, INSTAGRAM.count);
+  const fromCache = pick(cached?.instagram);
+  if (fromCache?.length) renderInsta(fromCache); // visita repetida: aparece na hora
+  const items = pick((await backend)?.instagram);
+  if (items?.length) {
+    if (JSON.stringify(items) !== JSON.stringify(fromCache)) renderInsta(items);
+    return;
+  }
+  if (fromCache?.length) return;
   // Sem backend/token ainda: fotos de exemplo apontando para o perfil
   renderInsta(Array.from({ length: INSTAGRAM.count }, (_, i) => ({
     src: demo(`insta${i}`, 400, 400), link: profile, alt: 'Foto de exemplo',
