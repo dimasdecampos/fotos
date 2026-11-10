@@ -117,7 +117,9 @@ function render() {
     mosaic.append(tile);
   });
 
-  const cats = [...new Set(PHOTOS.map((p) => p.cat))];
+  // Filtros em ordem alfabética, com "Geral" (fotos soltas na raiz) por último
+  const cats = [...new Set(PHOTOS.map((p) => p.cat))]
+    .sort((a, b) => (a === 'Geral') - (b === 'Geral') || a.localeCompare(b, 'pt-BR'));
   if (cats.length < 2) return; // com uma só categoria, filtros não fazem sentido
 
   ['Todas', ...cats].forEach((cat, i) => {
@@ -220,11 +222,25 @@ const backend = !BACKEND_URL ? Promise.resolve(null) : Promise.race([
   new Promise((resolve) => setTimeout(() => resolve(null), 15000)),
 ]).catch((err) => { console.warn('Backend indisponível:', err); return null; });
 
-// Fotos com estrela vão para o começo, mantendo a ordem entre si
+// Ordem aleatória a cada visita, misturando as categorias. A semente é sorteada
+// quando a página abre: a mesma foto cai sempre na mesma posição durante a
+// visita, então a lista guardada e a lista nova saem na mesma ordem (sem piscar).
+const SEED = Math.floor(Math.random() * 2 ** 32);
+function shuffleKey(id) {
+  let h = 2166136261 ^ SEED; // FNV-1a
+  for (let i = 0; i < id.length; i++) h = Math.imul(h ^ id.charCodeAt(i), 16777619);
+  return h >>> 0;
+}
+
+// Fotos com estrela vêm primeiro; o resto, embaralhado
 function applyFeatured(starredIds) {
   const starred = new Set(starredIds || []);
   PHOTOS.forEach((p) => { p.featured = starred.has(p.id); });
-  PHOTOS = [...PHOTOS.filter((p) => p.featured), ...PHOTOS.filter((p) => !p.featured)];
+  const mixed = (list) => list
+    .map((p) => [shuffleKey(String(p.id ?? p.thumb)), p])
+    .sort((a, b) => a[0] - b[0])
+    .map(([, p]) => p);
+  PHOTOS = [...mixed(PHOTOS.filter((p) => p.featured)), ...mixed(PHOTOS.filter((p) => !p.featured))];
 }
 
 /* ---------- Carregamento em camadas ----------
