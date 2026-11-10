@@ -147,11 +147,14 @@ h2 { font-size: clamp(1.75rem, 4vw, 2.5rem); }
 
 /* ---------- Rodapé / Instagram ---------- */
 .footer { background: var(--surface); border-top: 1px solid var(--line); padding-top: clamp(32px, 6vw, 56px); }
+/* Mesmo estilo do nome no topo (.brand): nome em serifa e legenda pequena embaixo */
 .insta-head {
-  display: flex; align-items: flex-end; justify-content: space-between; gap: 16px;
-  padding: 0 var(--pad) 20px;
+  display: flex; align-items: center; justify-content: space-between; gap: 16px;
+  padding: 0 var(--pad) 14px;
 }
-.insta-head h2 a:hover { color: var(--accent); }
+.insta-head .brand { margin: 0; }
+.insta-head .brand a:hover { color: var(--accent); }
+.btn-sm { min-height: 36px; padding: 0 16px; font-size: .875rem; }
 
 /* Mesmo visual da galeria: linhas justificadas de ponta a ponta, proporção real
    de cada publicação (--r é medido quando a imagem carrega). Sem "mola": com
