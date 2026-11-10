@@ -81,6 +81,15 @@ h2 { font-size: clamp(1.75rem, 4vw, 2.5rem); }
   .nav a[href="#instagram"] { color: var(--text); border: 1px solid var(--line); padding: 7px 14px; font-size: .875rem; }
 }
 
+/* Área de toque de 44 px em telas de toque, sem mudar o tamanho visível */
+@media (pointer: coarse) {
+  .chip, .btn-sm, .lb-link, .nav a { position: relative; }
+  .chip::after, .btn-sm::after, .lb-link::after, .nav a::after {
+    content: ""; position: absolute; left: -2px; right: -2px;
+    top: 50%; height: 44px; transform: translateY(-50%);
+  }
+}
+
 /* ---------- Filtros ---------- */
 /* Fixos logo abaixo do topo ao rolar (--topbar-h é medido no JS) */
 .filters {
@@ -102,7 +111,7 @@ h2 { font-size: clamp(1.75rem, 4vw, 2.5rem); }
 }
 .chip:hover { color: var(--text); border-color: var(--muted); }
 .chip[aria-pressed="true"] { background: var(--text); border-color: var(--text); color: var(--bg); }
-.chip .count { margin-left: 6px; font-size: .75rem; opacity: .55; font-variant-numeric: tabular-nums; }
+.chip .count { margin-left: 6px; font-size: .75rem; opacity: .8; font-variant-numeric: tabular-nums; }
 
 /* ---------- Galeria em linhas justificadas ----------
    Cada foto mantém a proporção real (--r = largura/altura): verticais em pé,
@@ -244,6 +253,14 @@ h2 { font-size: clamp(1.75rem, 4vw, 2.5rem); }
   padding: 56px 12px 16px;
 }
 .lightbox img { max-width: 100%; max-height: calc(100dvh - 130px); object-fit: contain; border-radius: 2px; }
+/* O quadro já abre no tamanho final; a versão grande entra por cima com fade */
+.lb-frame { position: relative; }
+.lb-frame #lb-img { display: block; }
+#lb-full {
+  position: absolute; inset: 0; width: 100%; height: 100%; max-height: none;
+  opacity: 0; transition: opacity .35s ease;
+}
+#lb-full.on { opacity: 1; }
 .lightbox figcaption {
   display: flex; justify-content: space-between; gap: 24px; width: 100%;
   font-size: .875rem; color: rgba(255, 255, 255, .7);

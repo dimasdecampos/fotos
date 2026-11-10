@@ -65,6 +65,9 @@ const mosaic = $('#mosaic');
 const filters = $('.filters');
 const empty = $('#empty');
 
+// Descrição da foto para leitores de tela e buscadores (o nome do arquivo costuma ser só números)
+const altOf = (p) => (p.title ? `${p.title} — ${p.cat}` : `Foto de ${p.cat} — Dimas de Campos`);
+
 const fadeIn = (img, fallbacks = []) => {
   const done = () => img.classList.add('loaded');
   if (img.complete && img.naturalWidth) return done();
@@ -97,7 +100,7 @@ function render() {
 
     const img = document.createElement('img');
     img.src = p.thumb;
-    img.alt = p.title;
+    img.alt = altOf(p);
     // Camadas: as primeiras fotos (topo da tela) chegam primeiro, o resto conforme rola
     img.loading = i < 12 ? 'eager' : 'lazy';
     if (i < 6) img.fetchPriority = 'high';
@@ -255,11 +258,25 @@ async function loadDrive() {
 /* =========================================================
    Backend (Apps Script): destaques + Instagram
    ========================================================= */
-// Uma única chamada serve os dois. Se demorar ou falhar, o site segue sem eles.
-const backend = !BACKEND_URL ? Promise.resolve(null) : Promise.race([
+// Cópia no próprio site, gerada todo dia pelo GitHub Actions (scripts/sync.py):
+// fotos, destaques e Instagram servidos pelo GitHub Pages, sem pedir nada ao
+// Google durante a visita. Se a cópia não existir, usa o Drive e o Apps Script.
+const staticData = fetch('data/galeria.json')
+  .then((r) => (r.ok ? r.json() : null))
+  .catch(() => null);
+const fromStatic = (p) => ({
+  id: p.id, title: p.title, cat: p.cat, ratio: p.ratio,
+  shape: p.ratio >= 1.3 ? 'wide' : p.ratio <= 0.77 ? 'tall' : '',
+  thumb: `fotos/thumb/${p.id}.webp`,
+  full: `fotos/full/${p.id}.webp`,
+});
+
+// Plano B ao vivo: uma única chamada ao Apps Script serve destaques e Instagram.
+const liveBackend = () => (!BACKEND_URL ? Promise.resolve(null) : Promise.race([
   fetch(BACKEND_URL).then((r) => (r.ok ? r.json() : null)),
   new Promise((resolve) => setTimeout(() => resolve(null), 15000)),
-]).catch((err) => { console.warn('Backend indisponível:', err); return null; });
+]).catch((err) => { console.warn('Backend indisponível:', err); return null; }));
+const backend = staticData.then((d) => (d ? { starred: d.starred, instagram: d.instagram } : liveBackend()));
 
 // Ordem aleatória a cada visita, misturando as categorias. A semente é sorteada
 // quando a página abre: a mesma foto cai sempre na mesma posição durante a
@@ -287,7 +304,7 @@ function applyFeatured(starredIds) {
       Primeira visita: mostra um esqueleto animado enquanto busca.
    2. Busca a lista nova no Drive (subpastas em paralelo) e os destaques.
    3. Só redesenha se algo mudou, e guarda o resultado para a próxima visita. */
-const CACHE_KEY = 'galeria-v1';
+const CACHE_KEY = 'galeria-v2';
 const readCache = () => { try { return JSON.parse(localStorage.getItem(CACHE_KEY)); } catch { return null; } };
 const writeCache = (data) => { try { localStorage.setItem(CACHE_KEY, JSON.stringify(data)); } catch { /* sem espaço/privado */ } };
 const wait = (ms) => new Promise((r) => setTimeout(() => r(undefined), ms));
@@ -320,8 +337,9 @@ function showGallery(photos, starred) {
   if (cached?.photos?.length) showGallery(cached.photos, cached.starred);
   else skeleton();
 
-  let photos = null;
-  if (DRIVE.folderId && DRIVE.apiKey) {
+  const local = await staticData;
+  let photos = local?.photos?.length ? local.photos.map(fromStatic) : null;
+  if (!photos && DRIVE.folderId && DRIVE.apiKey) {
     try {
       photos = await loadDrive();
       if (!photos.length) console.warn('Pasta do Drive sem imagens; mostrando exemplos.');
@@ -338,6 +356,7 @@ function showGallery(photos, starred) {
   showGallery(photos, quick?.starred ?? cached?.starred ?? []);
   const data = quick === undefined ? await backend : quick;
   if (data) showGallery(photos, data.starred);
+  openFromHash();
 
   writeCache({
     photos: fresh || cached?.photos || [],
@@ -352,29 +371,83 @@ function showGallery(photos, starred) {
 const lb = $('#lightbox');
 const lbImg = $('#lb-img');
 const lbLink = $('#lb-link');
+const lbFull = $('#lb-full');
+
+// Tamanho final do quadro pela proporção da foto (cabe na tela, sem pular depois)
+function fitLightbox(ratio) {
+  const mobile = innerWidth <= 700;
+  const maxW = innerWidth - 24;
+  const maxH = innerHeight - (mobile ? 190 : 130);
+  let w = maxW;
+  let h = w / ratio;
+  if (h > maxH) { h = maxH; w = h * ratio; }
+  lbImg.style.width = `${Math.round(w)}px`;
+  lbImg.style.height = `${Math.round(h)}px`;
+}
+
+// Baixa a versão grande antes de precisar (ao passar o mouse, e as vizinhas)
+const prefetched = new Set();
+function prefetch(p) {
+  if (!p?.full || p.full === p.thumb || prefetched.has(p.full)) return;
+  prefetched.add(p.full);
+  const img = new Image();
+  img.decoding = 'async';
+  img.src = p.full;
+}
 let pos = 0;
 // O visualizador mostra uma lista: as fotos visíveis da galeria ou as do Instagram.
 // lbFocus devolve o foco ao elemento certo quando ele fecha.
 let lbList = [];
 let lbFocus = () => null;
 
+// Endereço da foto aberta (#foto-<id> ou #insta-<código>): o botão "voltar" do
+// celular fecha a foto em vez de sair do site, e dá para compartilhar o link.
+const hashOf = (p) => (p.link ? `#insta-${(p.link.match(/\/(?:p|reel|tv)\/([^/?#]+)/) || [])[1] || ''}` : `#foto-${p.id}`);
 function openLightbox(list, index, focusOf) {
   lbList = list;
   lbFocus = focusOf;
   show(index);
-  lb.showModal();
+  if (!lb.open) {
+    lb.showModal();
+    history.pushState({ lb: true }, '', hashOf(lbList[pos]));
+  }
 }
 
 function show(n) {
   pos = (n + lbList.length) % lbList.length;
   const p = lbList[pos];
-  lbImg.src = p.thumb; // aparece na hora; troca pela versão grande quando carregar
-  lbImg.alt = p.alt || p.title || 'Foto';
+  // Camada de baixo: a miniatura (já carregada) no tamanho final.
+  // Camada de cima: a versão grande, que entra com fade quando estiver pronta.
+  lbFull.classList.remove('on');
+  lbFull.removeAttribute('src');
+  lbImg.src = p.thumb;
+  lbImg.alt = p.alt || altOf(p);
+  if (p.ratio) fitLightbox(p.ratio);
+  else if (lbImg.naturalWidth && lbImg.complete) fitLightbox(lbImg.naturalWidth / lbImg.naturalHeight);
+  else lbImg.addEventListener('load', () => {
+    if (lbList[pos] === p) fitLightbox(lbImg.naturalWidth / lbImg.naturalHeight);
+  }, { once: true });
   if (p.full && p.full !== p.thumb) {
-    const hi = new Image();
-    hi.onload = () => { if (lbList[pos] === p) lbImg.src = p.full; };
-    hi.src = p.full;
+    // O Google às vezes recusa a versão grande quando há muitos pedidos:
+    // tenta endereços alternativos antes de desistir (fica a miniatura).
+    const fromGoogle = /^https?:/.test(p.full);
+    const sources = [p.full, ...(p.id ? [driveAlt(p.id, 1600)] : []), ...(fromGoogle ? [`${p.full}&r=1`] : [])];
+    const tryLoad = (k) => {
+      if (k >= sources.length || lbList[pos] !== p) return;
+      const hi = new Image();
+      hi.src = sources[k];
+      (hi.decode ? hi.decode() : new Promise((ok, fail) => { hi.onload = ok; hi.onerror = fail; }))
+        .then(() => {
+          if (lbList[pos] !== p) return;
+          lbFull.src = sources[k];
+          requestAnimationFrame(() => lbFull.classList.add('on'));
+        }, () => setTimeout(() => tryLoad(k + 1), 400));
+    };
+    tryLoad(0);
   }
+  // Deixa a anterior e a próxima prontas para as setas
+  prefetch(lbList[(pos + 1) % lbList.length]);
+  prefetch(lbList[(pos - 1 + lbList.length) % lbList.length]);
   // "Ver no Instagram" só aparece nas publicações do Instagram
   lbLink.hidden = !p.link;
   if (p.link) lbLink.href = p.link;
@@ -387,7 +460,22 @@ function show(n) {
   title.append(cat);
   lb.style.setProperty('--lb-img', `url("${p.thumb}")`);
   $('#lb-count').textContent = `${pos + 1} / ${lbList.length}`;
+  if (lb.open && history.state?.lb) history.replaceState({ lb: true }, '', hashOf(p));
 }
+
+// Ao passar o mouse (ou encostar o dedo) numa foto, a versão grande já começa a baixar
+const warm = (e) => {
+  const tile = e.target.closest?.('.tile');
+  if (tile?.dataset.index) prefetch(PHOTOS[Number(tile.dataset.index)]);
+};
+mosaic.addEventListener('pointerover', warm);
+mosaic.addEventListener('pointerdown', warm);
+addEventListener('resize', () => {
+  if (!lb.open) return;
+  const p = lbList[pos];
+  const r = p?.ratio || (lbImg.naturalWidth ? lbImg.naturalWidth / lbImg.naturalHeight : 0);
+  if (r) fitLightbox(r);
+});
 
 mosaic.addEventListener('click', (e) => {
   const tile = e.target.closest('.tile');
@@ -409,8 +497,25 @@ lb.addEventListener('keydown', (e) => {
   if (e.key === 'ArrowRight') show(pos + 1);
 });
 
-// Ao fechar, devolve o foco para a foto que estava aberta
-lb.addEventListener('close', () => { lbFocus(lbList[pos])?.focus(); });
+// Ao fechar, devolve o foco para a foto que estava aberta e tira o #foto do endereço
+lb.addEventListener('close', () => {
+  lbFocus(lbList[pos])?.focus();
+  if (history.state?.lb) history.back(); // fechou pelo X/Esc: desfaz o estado da foto
+});
+// Botão "voltar" (ou gesto de voltar) com a foto aberta: só fecha a foto
+addEventListener('popstate', () => { if (lb.open) lb.close(); });
+
+// Link direto para uma foto (#foto-<id>): abre quando a galeria estiver pronta
+function openFromHash() {
+  const m = location.hash.match(/^#foto-(.+)$/);
+  if (!m || lb.open) return false;
+  const list = visible.map((i) => PHOTOS[i]);
+  const i = list.findIndex((p) => p.id === m[1]);
+  if (i < 0) return false;
+  history.replaceState(null, '', location.pathname + location.search); // o "voltar" sai da foto para a galeria
+  openLightbox(list, i, (p) => mosaic.querySelector(`[data-index="${PHOTOS.indexOf(p)}"]`));
+  return true;
+}
 
 // Deslizar no celular: para os lados troca de foto; para baixo fecha
 // (a foto acompanha o dedo e some ao soltar)
@@ -468,6 +573,7 @@ function renderInsta(items) {
   instaList = items.map((it) => ({
     thumb: it.src, full: it.src, link: it.link,
     alt: it.alt || 'Publicação no Instagram', title: postTitle(it.alt), cat: 'Instagram',
+    ratio: it.ratio,
   }));
   grid.replaceChildren(...items.map((it, i) => {
     const a = document.createElement('a');
@@ -483,7 +589,9 @@ function renderInsta(items) {
     // A API não informa o tamanho: mede ao carregar e ajusta a proporção do quadro
     img.addEventListener('load', () => {
       if (img.naturalWidth && img.naturalHeight) {
-        a.style.setProperty('--r', (img.naturalWidth / img.naturalHeight).toFixed(3));
+        const r = img.naturalWidth / img.naturalHeight;
+        a.style.setProperty('--r', r.toFixed(3));
+        if (instaList[i]) instaList[i].ratio = r;
       }
     }, { once: true });
     fadeIn(img);
