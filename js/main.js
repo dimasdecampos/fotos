@@ -351,16 +351,33 @@ function showGallery(photos, starred) {
    ========================================================= */
 const lb = $('#lightbox');
 const lbImg = $('#lb-img');
+const lbLink = $('#lb-link');
 let pos = 0;
+// O visualizador mostra uma lista: as fotos visíveis da galeria ou as do Instagram.
+// lbFocus devolve o foco ao elemento certo quando ele fecha.
+let lbList = [];
+let lbFocus = () => null;
+
+function openLightbox(list, index, focusOf) {
+  lbList = list;
+  lbFocus = focusOf;
+  show(index);
+  lb.showModal();
+}
 
 function show(n) {
-  pos = (n + visible.length) % visible.length;
-  const p = PHOTOS[visible[pos]];
+  pos = (n + lbList.length) % lbList.length;
+  const p = lbList[pos];
   lbImg.src = p.thumb; // aparece na hora; troca pela versão grande quando carregar
-  lbImg.alt = p.title || 'Foto';
-  const hi = new Image();
-  hi.onload = () => { if (PHOTOS[visible[pos]] === p) lbImg.src = p.full; };
-  hi.src = p.full;
+  lbImg.alt = p.alt || p.title || 'Foto';
+  if (p.full && p.full !== p.thumb) {
+    const hi = new Image();
+    hi.onload = () => { if (lbList[pos] === p) lbImg.src = p.full; };
+    hi.src = p.full;
+  }
+  // "Ver no Instagram" só aparece nas publicações do Instagram
+  lbLink.hidden = !p.link;
+  if (p.link) lbLink.href = p.link;
   // Legenda: título (quando o arquivo tem nome de verdade) + categoria
   const title = $('#lb-title');
   title.replaceChildren();
@@ -369,14 +386,15 @@ function show(n) {
   cat.textContent = p.cat;
   title.append(cat);
   lb.style.setProperty('--lb-img', `url("${p.thumb}")`);
-  $('#lb-count').textContent = `${pos + 1} / ${visible.length}`;
+  $('#lb-count').textContent = `${pos + 1} / ${lbList.length}`;
 }
 
 mosaic.addEventListener('click', (e) => {
   const tile = e.target.closest('.tile');
   if (!tile) return;
-  show(visible.indexOf(Number(tile.dataset.index)));
-  lb.showModal();
+  const list = visible.map((i) => PHOTOS[i]);
+  openLightbox(list, visible.indexOf(Number(tile.dataset.index)),
+    (p) => mosaic.querySelector(`[data-index="${PHOTOS.indexOf(p)}"]`));
 });
 
 lb.addEventListener('click', (e) => {
@@ -392,9 +410,7 @@ lb.addEventListener('keydown', (e) => {
 });
 
 // Ao fechar, devolve o foco para a foto que estava aberta
-lb.addEventListener('close', () => {
-  mosaic.querySelector(`[data-index="${visible[pos]}"]`)?.focus();
-});
+lb.addEventListener('close', () => { lbFocus(lbList[pos])?.focus(); });
 
 // Deslizar no celular: para os lados troca de foto; para baixo fecha
 // (a foto acompanha o dedo e some ao soltar)
@@ -440,9 +456,20 @@ $('#insta-handle').textContent = `@${INSTAGRAM.user}`;
 $('#insta-handle').href = profile;
 $('#insta-follow').href = profile;
 
+// Legenda do post para o visualizador: primeira linha, sem as hashtags
+const postTitle = (caption = '') => {
+  const line = caption.split('\n').map((l) => l.replace(/#[\p{L}\p{N}_]+/gu, '').trim()).find(Boolean) || '';
+  return line.length > 90 ? `${line.slice(0, 88).trimEnd()}…` : line;
+};
+
+let instaList = [];
 function renderInsta(items) {
   const grid = $('#insta-grid');
-  grid.replaceChildren(...items.map((it) => {
+  instaList = items.map((it) => ({
+    thumb: it.src, full: it.src, link: it.link,
+    alt: it.alt || 'Publicação no Instagram', title: postTitle(it.alt), cat: 'Instagram',
+  }));
+  grid.replaceChildren(...items.map((it, i) => {
     const a = document.createElement('a');
     a.className = 'insta-item';
     a.href = it.link;
@@ -461,6 +488,13 @@ function renderInsta(items) {
     }, { once: true });
     fadeIn(img);
     a.append(img);
+    // Clique abre grande no visualizador (com o link para o Instagram lá dentro).
+    // Ctrl/⌘ + clique ou botão do meio continuam abrindo o post direto.
+    a.addEventListener('click', (e) => {
+      if (e.ctrlKey || e.metaKey || e.shiftKey || e.button !== 0) return;
+      e.preventDefault();
+      openLightbox(instaList, i, () => grid.children[pos]);
+    });
     return a;
   }));
 }
