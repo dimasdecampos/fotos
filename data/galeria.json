@@ -1,5 +1,5 @@
 {
- "updated": "2026-11-10T22:24:08+00:00",
+ "updated": "2026-11-12T18:26:10+00:00",
  "photos": [
   {
    "id": "1sv5AKwofdTEWGXmDRt0emO886Bnq4a6Q",
@@ -58,6 +58,13 @@
    "modified": "2024-12-12T20:18:04.289Z"
   },
   {
+   "id": "1xA3qfKTAVFHUj4JuoihNR-oN4XlcurU4",
+   "cat": "Cachoeiras",
+   "title": "",
+   "ratio": 1.3333,
+   "modified": "2026-11-12T18:19:34.705Z"
+  },
+  {
    "id": "1XKvgopqbXB1zI-NBQWXTOMiOdEMk_bAC",
    "cat": "Cachoeiras",
    "title": "",
@@ -91,6 +98,13 @@
    "title": "",
    "ratio": 1.5106,
    "modified": "2024-12-12T20:17:56.173Z"
+  },
+  {
+   "id": "1EExzwFsfSyCKWcLna-iSrXrHEr9kzS_Y",
+   "cat": "Mar",
+   "title": "",
+   "ratio": 0.75,
+   "modified": "2026-11-12T18:23:05.869Z"
   },
   {
    "id": "1_qlExGghPGMG77WoBYcCj5Qj5-B9fxdf",
@@ -233,6 +247,13 @@
    "modified": "2026-11-10T13:59:24.673Z"
   },
   {
+   "id": "1quSsUafRifLjWTr91mhPYlWLAvyjed4B",
+   "cat": "Paisagens",
+   "title": "",
+   "ratio": 1.506,
+   "modified": "2026-11-12T18:23:14.587Z"
+  },
+  {
    "id": "14CSeTAIX3YqsYb9Nd57wg9j9vgRLvOPz",
    "cat": "Paisagens",
    "title": "",
@@ -252,6 +273,13 @@
    "title": "",
    "ratio": 1.506,
    "modified": "2024-12-12T20:20:17.061Z"
+  },
+  {
+   "id": "1VvUiMwJcEeBxGYQ-q6_JBiIPwaDbzaBf",
+   "cat": "Paisagens",
+   "title": "",
+   "ratio": 1.506,
+   "modified": "2026-11-12T18:22:56.725Z"
   },
   {
    "id": "1wCY9f7KP_mpa5SH7swkFgnoMj_ubQOhw",
